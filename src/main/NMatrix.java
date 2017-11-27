@@ -1,5 +1,6 @@
 package main;
 
+import java.util.Arrays;
 import java.util.Random;
 
 public class NMatrix {
@@ -81,6 +82,7 @@ public class NMatrix {
 				}
 			}
 		}
+		System.out.println(Arrays.deepToString(matrix));
 	}
 
 	// get node neighbours from matrix

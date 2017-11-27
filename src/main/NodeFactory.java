@@ -21,7 +21,7 @@ public class NodeFactory {
 			coop = (double)(rd.nextInt(100)+1)/100.0;
 			//for debugging:
 			System.out.println(coop);
-			nodes.add(new Nodes(m, n, i, credit, matrix, coop, alpha));
+			nodes.add(new Nodes(m, n, i, credit, matrix, alpha));
 		}
 
 		return nodes;

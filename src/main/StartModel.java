@@ -34,7 +34,7 @@ public class StartModel {
 		//NodeFactory nf = new NodeFactory();
 		//(int memorySpan, int numberOfNodes, int nodeID, int cr, NMatrix matrix, double coop, double a)
 		for(int i = 0; i<n; i++) {
-			node.add(new Nodes(m, n, i, cr, matrix, 0.5, alpha));
+			node.add(new Nodes(m, n, i, cr, matrix, alpha));
 		}
 		// start the game:
 		game = new PDGame(matrix, node);

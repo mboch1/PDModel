@@ -2,6 +2,7 @@ package main;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Random;
 
 public class Nodes {
 
@@ -32,9 +33,9 @@ public class Nodes {
 	// history of interaction with all nodes:
 	private int[][] history;
 	// last interaction index with node
-	private int[]index;
+	private int[] index;
 
-	public Nodes(int memorySpan, int numberOfNodes, int nodeID, int cr, NMatrix matrix, double coop, double a) {
+	public Nodes(int memorySpan, int numberOfNodes, int nodeID, int cr, NMatrix matrix, double a) {
 		tp = 0;
 		n = numberOfNodes;
 		m = memorySpan;
@@ -42,15 +43,31 @@ public class Nodes {
 		id = nodeID;
 		scores = new int[n];
 		alpha = a;
-		vicoop = coop;
+		Random rd = new Random();
+		
+		vicoop = (double)(rd.nextInt(100000000)/100000000.0);
+		System.out.println(vicoop);
 		viaccept = vicoop * alpha;
-		// set interaction history to 0 for m last node interactions from the outside of the neighbourhood
-		nnHistory = new int [m];
-		//create index to remember what was the last interaction
+		// set interaction history to 0 for m last node interactions from the outside of
+		// the neighbourhood
+		nnHistory = new int[m];
+/*		Random rd = new Random();
+		for (int i = 0; i < nnHistory.length; i++) {
+			nnHistory[i] = rd.nextInt(3) - 1;
+		}*/
+
+		// create index to remember what was the last interaction
 		nnIndex = 0;
 		// set initial m last interactions with everyone to 0
-		history = new int [n][m];
-		//create index to remember what was the last interaction
+		history = new int[n][m];
+/*		for (int j = 0; j < history.length; j++) {
+			for (int k = 0; k < m; k++) {
+				if (j != id) {
+					history[j][k] = rd.nextInt(3) - 1;
+				}
+			}
+		}*/
+		// create index to remember what was the last interaction
 		index = new int[n];
 		// get initial neighbourhood matrix:
 		myNeighbours = matrix.getMyNeighbours(id);
@@ -78,16 +95,22 @@ public class Nodes {
 	public double getViCoop() {
 		return vicoop;
 	}
-	
+
 	// get vicoop:
 	public int getMemorySpan() {
 		return m;
 	}
-	
+
 	// get viaccept:
 	public double getCredit() {
 		return credit;
 	}
+
+	// set neighbour true false
+	public void setNeighbour(int nodeID, boolean friend) {
+		myNeighbours[nodeID] = friend;
+	}
+
 	// set history of interaction with given node
 	public void setInteractionResult(int node, int result) {
 		// set result score with neighbour
@@ -99,13 +122,13 @@ public class Nodes {
 			// set the result history at the given index:
 			history[node][index[node]] = result;
 			// increase index for this node:
-			index[node]+=1;
+			index[node] += 1;
 		}
 		// restart counter:
 		else {
 			index[node] = 0;
 			// set the result history at the given index:
-			history[node][index[node]]= result;
+			history[node][index[node]] = result;
 		}
 		// if not neighbour:
 		if (myNeighbours[node] == false) {
@@ -128,6 +151,7 @@ public class Nodes {
 		for (int k = 0; k < m; k++) {
 			TPIJ += history[j][k];
 		}
+		System.out.println("TPIJ: "+TPIJ);
 		return TPIJ;
 	}
 
@@ -139,8 +163,8 @@ public class Nodes {
 		}
 		return TPIJ;
 	}
-	
-	//check if nodes are neighbours
+
+	// check if nodes are neighbours
 	public boolean isNeighbour(int j) {
 		return myNeighbours[j];
 	}
