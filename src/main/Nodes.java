@@ -1,36 +1,39 @@
 package main;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class Nodes {
 
-	//this node id:
+	// this node id:
 	private int id;
-	//total points
+	// total points
 	private int tp;
-	//memory span:
+	// memory span:
 	private int m;
-	//credit value (should equal m)
-	int credit;
-	//node total number
+	// credit value (should equal m)
+	private int credit;
+	// node total number
 	private int n;
-	//vi coop = vi invite
+	// vi coop = vi invite
 	private double vicoop;
-	//vi accept
+	// vi accept
 	private double viaccept;
-	//alpha (risk aversion 0 - 1)
+	// alpha (risk aversion 0 - 1)
 	private double alpha;
-	//this node neighbours (friends are 1, unknown are 0):
+	// this node neighbours (friends are 1, unknown are 0):
 	private boolean[] myNeighbours;
 	// hold score with each node here
 	private int[] scores;
-	// interaction with nodes outside neighbourhood - we keep only one list for non neighbours 
-	private ArrayList<Integer> interactionHistory;
-	private int nonNeighbourIndex;
+	// interaction with nodes outside neighbourhood - we keep only one list for non
+	// neighbours
+	private int[] nnHistory;
+	private int nnIndex;
 	// history of interaction with all nodes:
-	private ArrayList<ArrayList<Integer>> allHistory;
+	private int[][] history;
 	// last interaction index with node
-	private ArrayList<Integer> index;
+	private int[]index;
+
 	public Nodes(int memorySpan, int numberOfNodes, int nodeID, int cr, NMatrix matrix, double coop, double a) {
 		tp = 0;
 		n = numberOfNodes;
@@ -41,66 +44,104 @@ public class Nodes {
 		alpha = a;
 		vicoop = coop;
 		viaccept = vicoop * alpha;
-		
-		// set interaction history to 0 for everyone
-		for (int i = 0; i < m; i++) {
-			interactionHistory.set(i, 0);
-		}
-		
+		// set interaction history to 0 for m last node interactions from the outside of the neighbourhood
+		nnHistory = new int [m];
+		//create index to remember what was the last interaction
+		nnIndex = 0;
+		// set initial m last interactions with everyone to 0
+		history = new int [n][m];
+		//create index to remember what was the last interaction
+		index = new int[n];
+		// get initial neighbourhood matrix:
 		myNeighbours = matrix.getMyNeighbours(id);
-		// set initial node interaction history indexes to 0
-		for (int k = 0; k < n; k++) {
-			index.set(k, 0);
-		}
-		
-		// set initial m interactions with everyone to 0
-		for (int l = 0; l < n; l++) {
-			for(int n = 0; n< m; n++) {
-				allHistory.get(l).set(n, 0);
-			}
-		}
 	}
 
-	//get total points for this node:
-	public int setTotalScore() {
+	// get total points for this node:
+	public int getTotalScore() {
 		for (int i = 0; i < n; i++) {
 			tp += scores[i];
 		}
 		return tp;
 	}
-	//set outcome of an interaction with a node
-	public void setScore(int node, int score) {
-		scores[node] += score;
-	}
-	//return this node id:
+
+	// return this node id:
 	public int getID() {
 		return id;
 	}
-	//get viaccept:
+
+	// get viaccept:
 	public double getViAccept() {
 		return viaccept;
 	}
-	//get vicoop:
+
+	// get vicoop:
 	public double getViCoop() {
 		return vicoop;
 	}
-	//get total score:
-	public int getTP() {
-		return tp;
+	
+	// get vicoop:
+	public int getMemorySpan() {
+		return m;
 	}
-	//set history of interaction with given node
+	
+	// get viaccept:
+	public double getCredit() {
+		return credit;
+	}
+	// set history of interaction with given node
 	public void setInteractionResult(int node, int result) {
-		//check if node was a neighbour
-		if(myNeighbours[node]==true) {
-			//set result score with neighbour
-			
-			//add score to the history:
-			
-				//check history index
+		// set result score with neighbour
+		scores[node] += result;
+		// add score to the history:
+		// manage all interaction history:
+		// if index is below memory span do:
+		if (index[node] < m) {
+			// set the result history at the given index:
+			history[node][index[node]] = result;
+			// increase index for this node:
+			index[node]+=1;
 		}
-		//if not neighbour:
+		// restart counter:
 		else {
-			
+			index[node] = 0;
+			// set the result history at the given index:
+			history[node][index[node]]= result;
 		}
+		// if not neighbour:
+		if (myNeighbours[node] == false) {
+			// set non-neighbour interaction history:
+			if (nnIndex < m) {
+				nnHistory[nnIndex] = result;
+				nnIndex += 1;
+			}
+			// restart counter:
+			else {
+				nnIndex = 0;
+				nnHistory[nnIndex] = result;
+			}
+		}
+	}
+
+	// get total score from m last rounds between node i and node j:
+	public int getTPIJ(int j) {
+		int TPIJ = 0;
+		for (int k = 0; k < m; k++) {
+			TPIJ += history[j][k];
+		}
+		return TPIJ;
+	}
+
+	// get total score from m last rounds between node i and non-neighbours:
+	public int getNNTPIJ() {
+		int TPIJ = 0;
+		for (int k = 0; k < m; k++) {
+			TPIJ += nnHistory[k];
+		}
+		return TPIJ;
+	}
+	
+	//check if nodes are neighbours
+	public boolean isNeighbour(int j) {
+		return myNeighbours[j];
 	}
 }
