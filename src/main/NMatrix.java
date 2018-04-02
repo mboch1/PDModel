@@ -8,9 +8,7 @@ public class NMatrix {
 	// shared matrix which makes the network model:
 	private boolean[][] matrix;
 	// number of nodes
-	private int n;
-	// row of neighbours for single node
-	private boolean[] neighbours;
+	public int n;
 	// values for generating random structure:
 	private int connections;
 	private int min;
@@ -23,16 +21,15 @@ public class NMatrix {
 	public NMatrix(int totalN, double trustIniChance) {
 		n = totalN;
 		matrix = new boolean[n][n];
-		neighbours = new boolean[n];
 		// total random structure with a trust chance (friendship) per each node at the
 		// game start:
-		generateStructure(matrix, trustIniChance);
+		// generateStructure(matrix, trustIniChance);
 
 		// more controlled random creation:
 		// create nodes and neighbourhood:
-		min = 0;
+		// min = 0;
 		// keep max value +1 higher than expected for random generator
-		max = 5;
+		// max = 5;
 		// total number of connections / (number of nodes * average connections/2 * 2)
 		// -> since two-sided connections
 		// targetFactor = 0.35;
@@ -73,7 +70,7 @@ public class NMatrix {
 
 		for (int i = 0; i < n; i++) {
 			for (int j = 0; j < n; j++) {
-				if ( (((double)rd.nextInt(100)) / (100.0)) <= ((trustIniChance)/(100.0)) && i != j) {
+				if ((((double) rd.nextInt(100)) / (100.0)) <= ((trustIniChance) / (100.0)) && i != j) {
 					matrix[i][j] = true;
 					matrix[j][i] = true;
 				} else {
@@ -82,17 +79,20 @@ public class NMatrix {
 				}
 			}
 		}
-		System.out.println(Arrays.deepToString(matrix));
+	}
+
+	// set new neighbourhood:
+	public void setNeighbourhood(boolean[] newNeighbourhood, int id) {
+		matrix[id] = newNeighbourhood;
 	}
 
 	// get node neighbours from matrix
 	public boolean[] getMyNeighbours(int id) {
 		boolean[] myNeighbours = new boolean[n];
 		for (int i = 0; i < n; i++) {
-			if(matrix[id][i]==true) {
+			if (matrix[id][i] == true) {
 				myNeighbours[i] = true;
-			}
-			else {
+			} else {
 				myNeighbours[i] = false;
 			}
 		}
@@ -108,6 +108,10 @@ public class NMatrix {
 	// remove friend - does not remove other connection as in the research paper
 	public void removeFriend(int myID, int friendID) {
 		matrix[myID][friendID] = false;
+	}
+
+	public boolean[][] getMatrix() {
+		return matrix;
 	}
 
 }

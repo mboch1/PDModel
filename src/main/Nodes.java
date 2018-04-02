@@ -1,7 +1,5 @@
 package main;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Random;
 
 public class Nodes {
@@ -34,9 +32,12 @@ public class Nodes {
 	private int[][] history;
 	// last interaction index with node
 	private int[] index;
-
+	private int timesCoop;
+	private int timesDef;
 	public Nodes(int memorySpan, int numberOfNodes, int nodeID, int cr, NMatrix matrix, double a) {
 		tp = 0;
+		timesCoop = 0;
+		timesDef = 0;
 		n = numberOfNodes;
 		m = memorySpan;
 		credit = cr;
@@ -44,32 +45,19 @@ public class Nodes {
 		scores = new int[n];
 		alpha = a;
 		Random rd = new Random();
-		
-		vicoop = (double)(rd.nextInt(100000000)/100000000.0);
-		System.out.println(vicoop);
+		vicoop = (rd.nextInt(100000) / 100000.0);
 		viaccept = vicoop * alpha;
 		// set interaction history to 0 for m last node interactions from the outside of
 		// the neighbourhood
 		nnHistory = new int[m];
-/*		Random rd = new Random();
-		for (int i = 0; i < nnHistory.length; i++) {
-			nnHistory[i] = rd.nextInt(3) - 1;
-		}*/
-
 		// create index to remember what was the last interaction
 		nnIndex = 0;
 		// set initial m last interactions with everyone to 0
 		history = new int[n][m];
-/*		for (int j = 0; j < history.length; j++) {
-			for (int k = 0; k < m; k++) {
-				if (j != id) {
-					history[j][k] = rd.nextInt(3) - 1;
-				}
-			}
-		}*/
 		// create index to remember what was the last interaction
 		index = new int[n];
 		// get initial neighbourhood matrix:
+		myNeighbours = new boolean[n];
 		myNeighbours = matrix.getMyNeighbours(id);
 	}
 
@@ -79,6 +67,10 @@ public class Nodes {
 			tp += scores[i];
 		}
 		return tp;
+	}
+
+	public int[] getScores() {
+		return scores;
 	}
 
 	// return this node id:
@@ -104,6 +96,11 @@ public class Nodes {
 	// get viaccept:
 	public double getCredit() {
 		return credit;
+	}
+
+	// get neighbours
+	public boolean[] getNeighbours() {
+		return myNeighbours;
 	}
 
 	// set neighbour true false
@@ -151,7 +148,6 @@ public class Nodes {
 		for (int k = 0; k < m; k++) {
 			TPIJ += history[j][k];
 		}
-		System.out.println("TPIJ: "+TPIJ);
 		return TPIJ;
 	}
 
@@ -167,5 +163,21 @@ public class Nodes {
 	// check if nodes are neighbours
 	public boolean isNeighbour(int j) {
 		return myNeighbours[j];
+	}
+
+	public int getTimesCoop() {
+		return timesCoop;
+	}
+
+	public void setTimesCoop() {
+		this.timesCoop++;
+	}
+
+	public int getTimesDef() {
+		return timesDef;
+	}
+
+	public void setTimesDef() {
+		this.timesDef++;
 	}
 }

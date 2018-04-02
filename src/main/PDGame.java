@@ -1,68 +1,191 @@
 package main;
 
+import java.awt.BorderLayout;
+import java.awt.EventQueue;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.nio.charset.*;
+import java.nio.file.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Random;
+
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+
+import com.mxgraph.swing.mxGraphComponent;
 
 public class PDGame {
 
 	private NMatrix matrix;
-	private ArrayList<Nodes> nodes;
+	public ArrayList<Nodes> nodes;
 	private int turn;
 	private int finalTurn;
+	private JFrame frmPdgApplication;
+	private JPanel panel;
+	private mxGraphComponent graph;
+	private ResultsGraph draw;
 
 	public PDGame(NMatrix nm, ArrayList<Nodes> nd) {
 		matrix = nm;
 		nodes = nd;
 		turn = 0;
-		finalTurn = 5;
+		finalTurn = 1000;
 		// starts PD game:
 		while (turn < finalTurn) {
-			runGame();
+			runGame(turn);
 			turn++;
 		}
+
+		// prepare frame for graph
+		EventQueue.invokeLater(new Runnable() {
+			public void run() {
+				try {
+					printGraph();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		});
+		// draw graph based on results
+		draw = new ResultsGraph(nm, nd);
+		redraw();
+
+		// print end results:
+		printToFile();
 	}
 
-	private void runGame() {
+	private void printGraph() {
+
+		frmPdgApplication = new JFrame();
+		frmPdgApplication.setResizable(true);
+		frmPdgApplication.setTitle("PDG Application");
+		frmPdgApplication.setSize(1024, 768);
+		frmPdgApplication.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frmPdgApplication.setLayout(new BorderLayout());
+
+		// add game results to frame
+		panel = new JPanel();
+		panel.setLayout(new BorderLayout());
+		panel.setPreferredSize(frmPdgApplication.getContentPane().getSize());
+
+		frmPdgApplication.add(panel);
+		frmPdgApplication.pack();
+		frmPdgApplication.setVisible(true);
+
+	}
+
+	private void redraw() {
+		// panel.removeAll();
+		this.graph = draw.drawGraph();
+		panel.add(graph);
+		panel.revalidate();
+		panel.repaint();
+	}
+
+	private void printToFile() {
+		Charset utf8 = StandardCharsets.UTF_8;
+
+		try {
+			ArrayList<String> data = new ArrayList<>();
+			ArrayList<Integer> scores = new ArrayList<>();
+			ArrayList<Integer> neighbours = new ArrayList<>();
+			ArrayList<Integer> friendships = new ArrayList<>();
+			ArrayList<String> resultData = new ArrayList<>();
+
+			boolean matrixToWrite[][] = matrix.getMatrix();
+			// convert matrix data to printable version:
+			// for (int m = 0; m < matrixToWrite.length; m++) {
+			// matrixData.add(Arrays.toString(matrixToWrite[m]));
+			// }
+			String results = "ID" + "\t" + "Total Score" + "\t" + "ViCoop" + "\t" + "Neighbours" + "\t" + "Friends";
+			resultData.add(results);
+
+			for (int k = 0; k < nodes.size(); k++) {
+				int sumNeighbours = 0;
+				int sumFriends = 0;
+				int nodeScore = nodes.get(k).getTotalScore();
+
+				for (int m = 0; m < nodes.size(); m++) {
+					if (matrixToWrite[k][m] == true && matrixToWrite[m][k]) {
+						sumFriends++;
+					}
+					if (matrixToWrite[k][m] == true && matrixToWrite[m][k] == false) {
+						sumNeighbours++;
+					}
+				}
+				// add results to array lists:
+				neighbours.add(sumNeighbours);
+				friendships.add(sumFriends);
+				scores.add(nodeScore);
+			}
+			String id = "ID\t";
+			String coop = "Vcoop\t";
+			String sc = "Scores\t";
+			String n = "Neighbours\t";
+			String f = "Friends\t";
+			String d = "Defected\t";
+			String c = "Cooperated\t";
+
+			for (int t = 0; t < nodes.size(); t++) {
+				id = id + Integer.toString(t) + "\t";
+				sc = sc + Integer.toString(scores.get(t)) + "\t";
+				coop = coop + nodes.get(t).getViCoop() + "\t";
+				n = n + Integer.toString(neighbours.get(t)) + "\t";
+				f = f + Integer.toString(friendships.get(t)) + "\t";
+				d = d + Integer.toString(nodes.get(t).getTimesDef()) + "\t";
+				c = c + Integer.toString(nodes.get(t).getTimesCoop()) + "\t";
+			}
+
+			data.add(id);
+			data.add(sc);
+			data.add(coop);
+			data.add(n);
+			data.add(f);
+			data.add(d);
+			data.add(c);
+
+			// Files.write(Paths.get("matrix.txt"), matrixData, utf8);
+			Random rd = new Random();
+
+			Files.write(Paths.get(Integer.toString(rd.nextInt(100000)) + " data.txt"), data, utf8);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	private void runGame(int turn) {
 		// iterate for each node
 
 		for (int i = 0; i < nodes.size(); i++) {
 			// remove nodes with lower reputation than node i
-			int m = nodes.get(i).getMemorySpan();
+			double m = nodes.get(i).getMemorySpan();
 			double viaccept = nodes.get(i).getViAccept();
 			for (int j = 0; j < nodes.size(); j++) {
-				int tpij = nodes.get(i).getTPIJ(j);
-				double l = (double) (tpij / m);
-				//double lalt = (double) (tpij / (turn+1));
-				// if i!=j, don't compare itself:
-/*				if (i != j && turn<=m) {
-					if (lalt < viaccept) {
-						matrix.removeFriend(i, j);
-						nodes.get(i).setNeighbour(j, false);
-					}
-				}*/
-				if (i != j) {
+				if (nodes.get(i).isNeighbour(j) && i != j && turn > -1) {
+					double tpij = nodes.get(i).getTPIJ(j);
+					double l = tpij / m;
 					if (l < viaccept) {
 						matrix.removeFriend(i, j);
 						nodes.get(i).setNeighbour(j, false);
 					}
 				}
 			}
-
 			// select a player to play with
-			int selectedNode = nodeSelect(i);
-
-			// Debug:
-			System.out.println("NODE: " + i + " at turn: " + turn + " - selected to play with: " + selectedNode);
+			int selectedNode = selectToPlay(i);
 
 			// accept invitation:
 			if (acceptInvite(i, selectedNode) == true) {
 				// play PD game
-				System.out.println("invitation accepted");
+				// System.out.println("invitation accepted");
 				boolean thisNode = selectStrategy(nodes.get(i).getViCoop());
 				boolean chosenNode = selectStrategy(nodes.get(selectedNode).getViCoop());
 				// calculate payoffs and update tpij and tpji
 				calculatePayoffs(thisNode, chosenNode, i, selectedNode);
 			}
+
 			// if both nodes are able to become friends create the relationship, do it for
 			// both sides separately
 			double tpij = nodes.get(i).getTPIJ(selectedNode);
@@ -71,110 +194,141 @@ public class PDGame {
 			double Viaccept = nodes.get(i).getViAccept();
 			double Vjaccept = nodes.get(selectedNode).getViAccept();
 			double Vjinvite = nodes.get(selectedNode).getViCoop();
-			double memSpan = (double) nodes.get(i).getMemorySpan();
+			double memSpan = nodes.get(i).getMemorySpan();
+
 			// form relationship if both are true:
 			if (Viinvite < (tpij / memSpan) && (tpji / memSpan) > Vjaccept) {
-				System.out.println("nodes formed relationship: " + i + " and " + selectedNode);
 				nodes.get(i).setNeighbour(selectedNode, true);
 				nodes.get(selectedNode).setNeighbour(i, true);
-			} else {
-				if (Vjinvite < (tpji / memSpan) && tpij / memSpan > Viaccept) {
-					System.out.println("nodes formed relationship: " + i + " and " + selectedNode);
-					nodes.get(i).setNeighbour(selectedNode, true);
-					nodes.get(selectedNode).setNeighbour(i, true);
-				}
+				// share and update neighbours now:
+				shareFriends(i, selectedNode);
+				matrix.setBothFriends(i, selectedNode);
 			}
+			if (Vjinvite < (tpji / memSpan) && (tpij / memSpan) > Viaccept) {
+				nodes.get(i).setNeighbour(selectedNode, true);
+				nodes.get(selectedNode).setNeighbour(i, true);
+				// share and update neighbours now:
+				shareFriends(selectedNode, i);
+				matrix.setBothFriends(selectedNode, i);
+			}
+
 		}
 		// end of round
 	}
 
-	private void calculatePayoffs(boolean thisNode, boolean chosenNode, int nodeID, int selectedNodeID) {
-		// calculates payoffs based on PD puncation and updates tp tables for both
+	private void shareFriends(int i, int selectedNode) {
+		boolean[] n = nodes.get(i).getNeighbours();
+		boolean[] m = nodes.get(selectedNode).getNeighbours();
+
+		for (int j = 0; j < n.length; j++) {
+			// update n array:
+			if (i != j) {
+				if (n[j] == false && m[j] == true) {
+					n[j] = true;
+				}
+			}
+			// update m array:
+			if (selectedNode != j) {
+				if (n[j] == true && m[j] == false) {
+					m[j] = true;
+				}
+			}
+		}
+		// update myNeighbours in Nodes:
+		for (int k = 0; k < n.length; k++) {
+			nodes.get(i).setNeighbour(k, n[k]);
+			nodes.get(selectedNode).setNeighbour(k, m[k]);
+		}
+
+		// update matrix with new data:
+		matrix.setNeighbourhood(n, i);
+		matrix.setNeighbourhood(m, selectedNode);
+	}
+
+	private void calculatePayoffs(boolean activeResult, boolean targetResult, int active, int target) {
+		// calculates payoffs based on PD punctuation and updates tp tables for both
 		// nodes:
 		// A coop, B coop = 1,1, A def, B coop = 2,-1, A coop, B def = -1,2, A def B def
 		// = 0,0
-		if (thisNode == true && chosenNode == true) {
-			nodes.get(nodeID).setInteractionResult(selectedNodeID, 1);
-			nodes.get(selectedNodeID).setInteractionResult(nodeID, 1);
-			System.out.println("A coop, B coop = 1,1");
+		if (activeResult == true && targetResult == true) {
+			nodes.get(active).setInteractionResult(target, 1);
+			nodes.get(target).setInteractionResult(active, 1);
+			nodes.get(active).setTimesCoop();
+			nodes.get(target).setTimesCoop();
+
 		}
-		if (thisNode == false && chosenNode == true) {
-			nodes.get(nodeID).setInteractionResult(selectedNodeID, 2);
-			nodes.get(selectedNodeID).setInteractionResult(nodeID, -1);
-			System.out.println(" A def, B coop = 2,-1");
+		if (activeResult == false && targetResult == true) {
+			nodes.get(active).setInteractionResult(target, 2);
+			nodes.get(target).setInteractionResult(active, -1);
+			nodes.get(active).setTimesDef();
+			nodes.get(target).setTimesCoop();
 		}
-		if (thisNode == true && chosenNode == false) {
-			nodes.get(nodeID).setInteractionResult(selectedNodeID, -1);
-			nodes.get(selectedNodeID).setInteractionResult(nodeID, 2);
-			System.out.println("A coop, B def = -1,2");
+		if (activeResult == true && targetResult == false) {
+			nodes.get(active).setInteractionResult(target, -1);
+			nodes.get(target).setInteractionResult(active, 2);
+			nodes.get(active).setTimesCoop();
+			nodes.get(target).setTimesDef();
 		}
-		if (thisNode == false && chosenNode == false) {
-			nodes.get(nodeID).setInteractionResult(selectedNodeID, 0);
-			nodes.get(selectedNodeID).setInteractionResult(nodeID, 0);
-			System.out.println("A def B def = 0,0");
+		if (activeResult == false && targetResult == false) {
+			nodes.get(active).setInteractionResult(target, 0);
+			nodes.get(target).setInteractionResult(active, 0);
+			nodes.get(active).setTimesDef();
+			nodes.get(target).setTimesDef();
 		}
 	}
 
 	private boolean selectStrategy(double viCoop) {
 		Random rd = new Random();
+		double check = rd.nextInt(10000) / 10000.0;
 		// returns true if node is going to cooperate, false otherwise
-		if (viCoop <= ((double) rd.nextInt(100000000) / 100000000.0)) {
+		if (viCoop >= check) {
 			return true;
+		} else {
+			return false;
 		}
-		return false;
 	}
 
 	private boolean acceptInvite(int thisNode, int selectedNode) {
-		ArrayList<Double> eWij = new ArrayList<>();
-		// constant value for both cases:
-		// sum of neighbour node values from i to k Wik:
-		for (int i = 0; i < nodes.size(); i++) {
-			int tpij = nodes.get(thisNode).getTPIJ(i);
-			// if neighbour add to the list:
-			if (nodes.get(thisNode).isNeighbour(i) == true && i != thisNode) {
-				eWij.add((double) ((nodes.get(i).getCredit() + tpij) / (nodes.get(i).getMemorySpan())));
-			}
-		}
-		// if node has no neighbours case kENi = 0:
-		if (eWij.size() <= 0) {
-			eWij.add(0.0);
-		}
-		// WN'i
-		double wni = (double) ((nodes.get(thisNode).getCredit() + nodes.get(thisNode).getNNTPIJ())
-				/ (nodes.get(thisNode).getMemorySpan()));
-		if (wni < 0) {
-			wni = 0.05;
-		}
-		// value for case if non-neighbour node:
-		double wij = (nodes.get(thisNode).getCredit() + nodes.get(thisNode).getTPIJ(selectedNode))
-				/ (nodes.get(thisNode).getMemorySpan());
+		double m = nodes.get(selectedNode).getMemorySpan();
+		double cr = nodes.get(selectedNode).getCredit();
+		double nntpij = nodes.get(selectedNode).getNNTPIJ();
+		double wn = (cr + nntpij) / m;
 
-		if (nodes.get(thisNode).isNeighbour(selectedNode)) {
-			// calculate acceptance for neighbour node:
-			double acceptance = 0.0;
-			for (int t = 0; t < eWij.size(); t++) {
-				acceptance += eWij.get(t);
+		if (wn <= 0) {
+			wn = 0.05;
+		}
+
+		double sumWij = 0;
+		for (int i = 0; i < nodes.size(); i++) {
+			// if neighbour add to the list:
+			if (nodes.get(selectedNode).isNeighbour(i) == true && nodes.get(i).isNeighbour(selectedNode) == true
+					&& i != selectedNode) {
+				double tpij = nodes.get(selectedNode).getTPIJ(i);
+				sumWij += (cr + tpij) / m;
 			}
-			double result = acceptance / (wni + acceptance);
+		}
+
+		if (nodes.get(thisNode).isNeighbour(selectedNode) == true
+				&& nodes.get(selectedNode).isNeighbour(thisNode) == true) {
+			double acceptance = sumWij / (wn + sumWij);
 
 			Random rd = new Random();
-			if (result <= ((double) rd.nextInt(100000000)) / 100000000.0) {
+			int value = rd.nextInt(100000);
+			double check = value / 100000.0;
+			if (check <= acceptance) {
 				return true;
 			} else {
 				return false;
 			}
-
 		} else {
-			// calculate acceptance for non-neighbour node:
-			double acceptance = 0.0;
-			for (int t = 0; t < eWij.size(); t++) {
-				acceptance += eWij.get(t);
-			}
-
-			double result = wij / (wni + acceptance);
+			double tp = nodes.get(selectedNode).getTPIJ(thisNode);
+			double wijnn = (cr + tp) / m;
+			double nnaccept = wijnn / (wn + sumWij);
 
 			Random rd = new Random();
-			if (result <= ((double) rd.nextInt(100000000)) / 100000000.0) {
+			int value = rd.nextInt(100000);
+			double check = value / 100000.0;
+			if (check <= nnaccept) {
 				return true;
 			} else {
 				return false;
@@ -182,145 +336,156 @@ public class PDGame {
 		}
 	}
 
-	// function returns node id to ask to play with:
-	private int nodeSelect(int z) {
+	// working:
+	private int selectToPlay(int node) {
+		// get neighbourhood
+		boolean[] n = nodes.get(node).getNeighbours();
+		double cr = nodes.get(node).getCredit();
+		int nntpij = nodes.get(node).getNNTPIJ();
+		int m = nodes.get(node).getMemorySpan();
 
-		ArrayList<Double> wij = new ArrayList<>();
-		ArrayList<Integer> ijIndex = new ArrayList<>();
-		ArrayList<Double> wijnn = new ArrayList<>();
-		ArrayList<Integer> ijnnIndex = new ArrayList<>();
-		// calculate wni
-		double wni = (double) ((nodes.get(z).getCredit() + nodes.get(z).getNNTPIJ()) / (nodes.get(z).getMemorySpan()));
-		// in case where wni < 0 assume wni = min weight = 0.05
-		if (wni < 0) {
-			wni = 0.05;
+		// set wn or use min weight
+		double wn = (cr + nntpij) / m;
+
+		if (wn <= 0) {
+			wn = 0.05;
 		}
-		// calculate wik [sum of wij without wni]
+		// make n-1 possible spaces to fill
+
+		double[] prep = new double[nodes.size()];
+		double wij = 0.0;
+		double wijnn = 0.0;
+
+		// sum wij and wijnn
 		for (int i = 0; i < nodes.size(); i++) {
-			int tpij = nodes.get(z).getTPIJ(i);
-			// if neighbour add to the list:
-			if (nodes.get(z).isNeighbour(i) == true && i != z) {
-				wij.add((double) ((nodes.get(i).getCredit() + tpij) / (nodes.get(i).getMemorySpan())));
-				// remember which node was it:
-				ijIndex.add(i);
+			if (n[i] == true && nodes.get(i).isNeighbour(node) == true && i != node) {
+				double tpij = nodes.get(node).getTPIJ(i);
+				wij += (cr + tpij) / m;
 			}
-			if (nodes.get(z).isNeighbour(i) == false && i != z) {
-				wijnn.add((double) ((nodes.get(i).getCredit() + tpij) / (nodes.get(i).getMemorySpan())));
-				// remember which node was it:
-				ijnnIndex.add(i);
-			}
-		}
-		System.out.println("Node" + z + " id neighbours: " + ijIndex);
-		System.out.println("Node" + z + " id non neighbours: " + ijnnIndex);
-		// begin roulette calculations
-		double sumWik = 0.0;
-		// sum of node neighbourhood wij values:
-		for (int k = 0; k < wij.size(); k++) {
-			sumWik += wij.get(k);
-		}
-
-		double sumWiknn = 0.0;
-		// sum of node non neighbourhood wijnn values:
-		for (int k = 0; k < wijnn.size(); k++) {
-			sumWiknn += wijnn.get(k);
-		}
-
-		// n-1 nodes:
-		double[] roulette = new double[nodes.size() - 1];
-		int[] node = new int[nodes.size() - 1];
-
-		// build roulette start:
-		// first check if node has any neighbours:
-		if (wij.size() <= 0) {
-			System.out.println("warning node: " + z + " has no neighbours using alternative");
-			// first check if there are any non-neighbours:
-			for (int l = 0; l < wijnn.size(); l++) {
-				if (l == 0) {
-					roulette[l] = (((wni) / (wni + sumWik)) * (wijnn.get(l) / (sumWiknn)));
-					node[l] = ijnnIndex.get(l);
+			if ((n[i] == false || nodes.get(i).isNeighbour(node) == false) && i != node) {
+				double tpij = nodes.get(node).getTPIJ(i);
+				if ((cr + tpij) / m > 0) {
+					wijnn += (cr + tpij) / m;
 				} else {
-					// sum previous node value so that we will get ie: 20%, 24%(4%), 34%(10%)...
-					// 100%(1%)
-					roulette[l] = (((wni) / (wni + sumWik)) * (wijnn.get(l) / (sumWiknn))) + roulette[l - 1];
-					// keep node index
-					node[l] = ijnnIndex.get(l);
+					wijnn += 0.05;
 				}
 			}
+		}
 
-			// roulette completed:
-			// time to randomly pick the result:
+		wij = BigDecimal.valueOf(wij).setScale(3, RoundingMode.HALF_DOWN).doubleValue();
+		wijnn = BigDecimal.valueOf(wijnn).setScale(3, RoundingMode.HALF_DOWN).doubleValue();
+		int countN = 0;
+		int countNN = 0;
+		// calculate neighbours chance to get picked and place on array:
+		for (int j = 0; j < nodes.size(); j++) {
+			if ((n[j] == true || nodes.get(j).isNeighbour(node) == true) && j != node) {
+				// calculate chance to get picked:
+				double tpij = nodes.get(node).getTPIJ(j);
+				double chance = (cr + tpij) / m;
+				chance = BigDecimal.valueOf(chance).setScale(3, RoundingMode.HALF_DOWN).doubleValue();
+				double value = chance / (wn + wij);
+				value = BigDecimal.valueOf(value).setScale(3, RoundingMode.HALF_DOWN).doubleValue();
+				prep[j] = value;
+				countN++;
+			}
+			if ((n[j] == false || nodes.get(j).isNeighbour(node) == false) && j != node) {
+				double tpij = nodes.get(node).getTPIJ(j);
+				double chance = (cr + tpij) / m;
+				chance = BigDecimal.valueOf(chance).setScale(3, RoundingMode.HALF_DOWN).doubleValue();
+				// (wn / (wn + wij)) *
+				double value = (chance / wijnn);
+				value = BigDecimal.valueOf(value).setScale(3, RoundingMode.HALF_DOWN).doubleValue();
+				prep[j] = value;
+				countNN++;
+			}
+			if (j == node) {
+				prep[j] = -1000;
+			}
+		}
+
+		double[] roulette;
+		int[] index;
+		double[] rouletteNN;
+		int[] indexNN;
+
+		if (countN > 0) {
+			roulette = new double[countN];
+			index = new int[countN];
+		} else {
+			roulette = new double[1];
+			index = new int[1];
+		}
+		if (countNN > 0) {
+			rouletteNN = new double[countNN];
+			indexNN = new int[countNN];
+		} else {
+			rouletteNN = new double[1];
+			indexNN = new int[1];
+		}
+
+		// create roulette:
+		if (countN > 0) {
+			int counter = 0;
+			for (int k = 0; k < nodes.size(); k++) {
+				if (prep[k] != -1000 && n[k] == true) {
+					if (counter > 0) {
+						roulette[counter] = BigDecimal.valueOf(roulette[counter - 1] + prep[k])
+								.setScale(3, RoundingMode.HALF_DOWN).doubleValue();
+						index[counter] = k;
+						counter++;
+					} else {
+						roulette[counter] = BigDecimal.valueOf(prep[k]).setScale(3, RoundingMode.HALF_DOWN)
+								.doubleValue();
+						index[counter] = k;
+						counter++;
+					}
+				}
+			}
+		}
+
+		if (countNN > 0) {
+			int counter = 0;
+			for (int k = 0; k < nodes.size(); k++) {
+				if (prep[k] != -1000 && n[k] == false) {
+					if (counter > 0) {
+						rouletteNN[counter] = BigDecimal.valueOf(rouletteNN[counter - 1] + prep[k])
+								.setScale(3, RoundingMode.HALF_DOWN).doubleValue();
+						indexNN[counter] = k;
+						counter++;
+					} else {
+						rouletteNN[counter] = BigDecimal.valueOf(prep[k]).setScale(3, RoundingMode.HALF_DOWN)
+								.doubleValue();
+						indexNN[counter] = k;
+						counter++;
+					}
+				}
+			}
+		}
+		if (countN > 0) {
 			Random rd = new Random();
-			int randomed = rd.nextInt(1000000000);
-			// get value between 0.0000 and 1.0000 as double:
-			double converted = (double) randomed / 1000000000.0;
-			// finally find number which we drew and return the result:
-			for (int t = 0; t < roulette.length; t++) {
-				System.out.println(roulette[t] + " is it higher than: " + converted + "for node id: " + node[t]);
-				if (roulette[t] >= converted) {
-					return node[t];
-				}
-			}
-		}
-		// if node has neighbours and non neighbours:
-		if (wij.size() > 0 && wijnn.size() > 0) {
-			for (int j = 0; j < wij.size(); j++) {
-				if (j == 0) {
-					roulette[j] = (wij.get(j)) / (wni + sumWik);
-					node[j] = ijIndex.get(j);
-				} else {
-					// sum previous node value so that we will get ie: 20%, 24%(4%), 34%(10%)...
-					// 100%(1%)
-					roulette[j] = ((wij.get(j)) / ((wni + sumWik))) + roulette[j - 1];
-					// keep node index
-					node[j] = ijIndex.get(j);
-				}
-			}
-
-			for (int l = 0; l < wijnn.size(); l++) {
-				if (l == 0) {
-					roulette[l + wij.size()] = (((wni) / (wni + sumWik)) * (wijnn.get(l) / (sumWiknn)))
-							+ roulette[wij.size() - 1];
-					node[l + wij.size()] = ijnnIndex.get(l);
-				} else {
-					// sum previous node value so that we will get ie: 20%, 24%(4%), 34%(10%)...
-					// 100%(1%)
-					roulette[l + wij.size()] = (((wni) / (wni + sumWik)) * (wijnn.get(l) / (sumWiknn)))
-							+ roulette[wij.size() - 1 + l];
-					// keep node index
-					node[l + wij.size()] = ijnnIndex.get(l);
-				}
-			}
-		}
-		// check if node has only neighbours:
-		if (wijnn.size() <= 0) {
-			for (int j = 0; j < wij.size(); j++) {
-				if (j == 0) {
-					roulette[j] = (wij.get(j)) / (wni + sumWik);
-					node[j] = ijIndex.get(j);
-				} else {
-					// sum previous node value so that we will get ie: 20%, 24%(4%), 34%(10%)...
-					// 100%(1%)
-					roulette[j] = ((wij.get(j)) / ((wni + sumWik))) + roulette[j - 1];
-					// keep node index
-					node[j] = ijIndex.get(j);
+			int value = rd.nextInt(10000);
+			double check = value / 10000.0;
+			for (int i = 0; i < roulette.length; i++) {
+				if (check <= roulette[i]) {
+					return index[i];
 				}
 			}
 		}
 
-		// roulette completed:
-		// time to randomly pick the result:
-		Random rd = new Random();
-		int randomed = rd.nextInt(1000000000);
-		// get value between 0.0000 and 1.0000 as double:
-		double converted = (double) randomed / 1000000000.0;
-		// finally find number which we drew and return the result:
-		for (int t = 0; t < roulette.length; t++) {
-			System.out.println(roulette[t] + " is it higher than: " + converted + "for node id: " + node[t]);
-			if (roulette[t] >= converted) {
-				return node[t];
+		if (countNN > 0) {
+			Random rd = new Random();
+			int value = rd.nextInt(10000);
+			double check = value / 10000.0;
+			for (int i = 0; i < rouletteNN.length; i++) {
+				if (check <= rouletteNN[i]) {
+					return indexNN[i];
+				}
+				if (i == rouletteNN.length - 1 && rouletteNN[i] - check <= 0) {
+					return indexNN[i];
+				}
 			}
 		}
+
 		return -1;
-
 	}
 }
